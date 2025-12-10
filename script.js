@@ -1,100 +1,175 @@
-// Scene Setup
-const scene = new THREE.Scene();
-// Add some fog for depth - color matches the dark background
-scene.fog = new THREE.FogExp2(0x050505, 0.002);
+/* script.js
+ - Lightweight Three.js animated terrain background
+ - Detects touch devices / small screens and reduces work (pauses animation)
+ - If Three.js is missing or fails, the page still works (canvas is decorative)
+*/
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-// Position the camera slightly above the ground
-camera.position.z = 5; 
-camera.position.y = 3;
-camera.rotation.x = -0.5; // Look down slightly
+(() => {
+  const container = document.getElementById('canvas-container');
+  if (!container) return;
 
-const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-document.getElementById('canvas-container').appendChild(renderer.domElement);
+  // basic device checks
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  const smallScreen = window.matchMedia && window.matchMedia('(max-width:600px)').matches;
+  const disable3D = isTouch || smallScreen;
 
-// --- Create the Digital Terrain ---
+  // If device flagged, hide container and skip heavy initialization
+  if (disable3D) {
+    container.style.display = 'none';
+    return;
+  }
 
-// Geometry: A large plane with many segments for detail
-const geometry = new THREE.PlaneGeometry(100, 100, 60, 60);
+  // Scene setup
+  let scene, camera, renderer, plane, animId;
+  let mouseX = 0, mouseY = 0;
+  let frame = 0;
 
-// Material: A wireframe green grid
-const material = new THREE.MeshBasicMaterial({ 
-    color: 0x38a838, // Your brand's secondary green
-    wireframe: true,
-    transparent: true,
-    opacity: 0.3
-});
+  const init = () => {
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x071126, 0.0025);
 
-const terrain = new THREE.Mesh(geometry, material);
-terrain.rotation.x = -Math.PI / 2; // Lay flat
-scene.add(terrain);
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
+    camera.position.set(0, 30, 60);
 
-// --- Animation Logic ---
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(width, height);
+    renderer.setClearColor(0x071126, 1);
+    container.appendChild(renderer.domElement);
 
-// Store original vertex positions to manipulate them
-const count = geometry.attributes.position.count;
-const positionAttribute = geometry.attributes.position;
-const originalPositions = new Float32Array(count * 3);
+    // soft directional lighting
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(-1, 1, 1).normalize();
+    scene.add(dirLight);
 
-// Copy positions
-for (let i = 0; i < count; i++) {
-    originalPositions[i * 3] = positionAttribute.getX(i);
-    originalPositions[i * 3 + 1] = positionAttribute.getY(i); // Height (Z in local space)
-    originalPositions[i * 3 + 2] = positionAttribute.getZ(i);
-}
+    const amb = new THREE.AmbientLight(0x9fcbe6, 0.35);
+    scene.add(amb);
 
-let time = 0;
+    // plane geometry (terrain)
+    const cols = 120; // performance vs detail
+    const rows = 120;
+    const geom = new THREE.PlaneGeometry(120, 120, cols, rows);
+    geom.rotateX(-Math.PI / 2);
 
-function animate() {
-    requestAnimationFrame(animate);
-    time += 0.005; // Speed of animation
+    // basic vertex displacement and color
+    const mat = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.8,
+      metalness: 0.05,
+      flatShading: false,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.95,
+    });
 
-    // Manipulate vertices to create waves (simulating hills moving)
-    for (let i = 0; i < count; i++) {
-        const x = originalPositions[i * 3];
-        const y = originalPositions[i * 3 + 1];
-        
-        // Create a wave effect using sine and cosine based on position and time
-        // This simulates a "noise" effect for the hills
-        const waveX = Math.sin(x * 0.5 + time * 2) * 0.5;
-        const waveY = Math.cos(y * 0.3 + time * 1.5) * 0.5;
-        
-        // Update the "height" (Z axis in the PlaneGeometry's local space)
-        const newZ = (Math.sin(x * 0.2 + time) + Math.cos(y * 0.2 + time)) * 1.5;
-        
-        // Apply the new height
-        positionAttribute.setZ(i, newZ);
+    // set vertex colors
+    const colorA = new THREE.Color(0x0ff3d0);
+    const colorB = new THREE.Color(0x0a4b6b);
+    const colors = [];
+    for (let i = 0; i < geom.attributes.position.count; i++) {
+      const v = geom.attributes.position;
+      // gradient based on y (just to vary color)
+      const t = Math.random() * 0.15;
+      colors.push(colorA.r + t, colorA.g + t, colorA.b + t);
     }
-    
-    // Tell Three.js the geometry has changed
-    positionAttribute.needsUpdate = true;
-    
-    // Gentle rotation for extra dynamism
-    terrain.rotation.z += 0.0005;
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+    plane = new THREE.Mesh(geom, mat);
+    plane.position.y = -6;
+    scene.add(plane);
+
+    // mouse move listener
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
+    window.addEventListener('resize', onResize, { passive: true });
+  };
+
+  function onMouseMove(e) {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    mouseX = (e.clientX - w / 2) / w * 2;
+    mouseY = (e.clientY - h / 2) / h * 2;
+  }
+
+  function onResize() {
+    if (!renderer || !camera) return;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
+
+  function animate() {
+    frame += 0.01;
+    const pos = plane.geometry.attributes.position;
+    const count = pos.count;
+
+    // subtle wave using sine - lightweight alternative to Perlin
+    for (let i = 0; i < count; i++) {
+      const ix = i * 3;
+      const x = pos.array[ix];
+      const z = pos.array[ix + 2];
+      // wave pattern
+      pos.array[ix + 1] = Math.sin((x * 0.08) + frame) * 1.6 + Math.cos((z * 0.05) + frame * 0.9) * 1.2;
+    }
+    pos.needsUpdate = true;
+    plane.geometry.computeVertexNormals();
+
+    // camera slight follow mouse
+    camera.position.x += (mouseX * 30 - camera.position.x) * 0.03;
+    camera.position.y += (-mouseY * 20 + 28 - camera.position.y) * 0.03;
+    camera.lookAt(0, 0, 0);
 
     renderer.render(scene, camera);
-}
+    animId = requestAnimationFrame(animate);
+  }
 
-animate();
+  // start
+  try {
+    init();
+    animate();
+  } catch (err) {
+    // fail gracefully: remove canvas so page remains usable
+    console.error('3D init error:', err);
+    if (renderer && renderer.domElement) container.removeChild(renderer.domElement);
+    container.style.display = 'none';
+    return;
+  }
 
-// --- Handle Window Resize ---
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  // basic cleanup on page unload
+  window.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      cancelAnimationFrame(animId);
+    } else {
+      animId = requestAnimationFrame(animate);
+    }
+  }, { passive: true });
 
-// --- Optional: Add subtle mouse interaction ---
-let mouseX = 0;
-let mouseY = 0;
-
-document.addEventListener('mousemove', (event) => {
-    mouseX = (event.clientX - window.innerWidth / 2) / 1000;
-    mouseY = (event.clientY - window.innerHeight / 2) / 1000;
-    
-    // Slight tilt of the terrain based on mouse
-    terrain.rotation.x = -Math.PI / 2 + mouseY;
-    terrain.rotation.y = mouseX;
-});
+  // notify form (front-end only): show thank-you message (no backend)
+  const form = document.getElementById('notify-form');
+  if (form) {
+    const emailInput = form.querySelector('input[type="email"]');
+    const msg = document.getElementById('notify-msg');
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const email = (emailInput.value || '').trim();
+      if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+        msg.textContent = 'Please enter a valid email address.';
+        msg.style.color = '#ffb3b3';
+        return;
+      }
+      // Simple frontend-only "success" flow. Replace with backend integration if needed.
+      msg.textContent = 'Thanks! We will notify you when the site is live.';
+      msg.style.color = '#c9ffd9';
+      emailInput.value = '';
+      // optional: store in localStorage as a backup
+      try {
+        let pending = JSON.parse(localStorage.getItem('maq_notify') || '[]');
+        pending.push({ email, ts: Date.now() });
+        localStorage.setItem('maq_notify', JSON.stringify(pending));
+      } catch (e) { /* ignore localStorage errors */ }
+    });
+  }
+})();
