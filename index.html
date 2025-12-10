@@ -8,10 +8,10 @@
   <!-- main stylesheet -->
   <link rel="stylesheet" href="styles.css">
 
-  <!-- three.js -->
+  <!-- three.js (only used on non-touch / large screens) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
 
-  <!-- app script -->
+  <!-- app script (includes terrain + UI interactions) -->
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -22,64 +22,108 @@
     <article class="glass-card" aria-label="Maintenance information for Maqased al Noor Landscape">
       <header class="card-header">
         <div class="brand-wrap">
-          <!-- optional: add a logo img if available -->
-          <h1 id="page-title" class="brand-title">MAN <span class="brand-sub">LANDSCAPE</span></h1>
+          <!-- Optional logo <img src="logo.svg" alt="Maqased al Noor logo"> -->
+          <h1 id="page-title" class="brand-title">
+            MAN <span class="brand-sub">LANDSCAPE</span>
+          </h1>
           <p class="tagline">Shaping Nature with Excellence</p>
         </div>
 
         <div class="status-row">
-          <div class="status-badge" role="status" aria-live="polite">🚧 Website Under Maintenance</div>
+          <button id="status-badge" class="status-badge" aria-live="polite" aria-pressed="false">
+            <span class="badge-emoji">🚧</span>
+            <span class="badge-text">Website Under Maintenance</span>
+          </button>
+
           <div class="eta">Estimated return: <strong>Shortly</strong></div>
         </div>
       </header>
 
       <section class="card-body" aria-labelledby="about-heading">
-        <h2 id="about-heading">About Maqased al Noor Landscape</h2>
+        <h2 id="about-heading" class="section-title">About Maqased al Noor Landscape</h2>
         <p class="intro">
           Maqased al Noor Landscape is a Dubai-based landscaping company providing creative design,
           quality installation, and reliable maintenance services. We transform outdoor spaces with
-          expert landscaping, irrigation, hardscape, and garden care solutions.
+          intelligent irrigation, thoughtful hardscape, and continuous garden care.
         </p>
 
-        <div class="two-cols">
-          <div class="left-col">
-            <h3>Our Services</h3>
-            <ul class="service-list" aria-label="Services offered">
-              <li>Landscape design & maintenance</li>
-              <li>Hardscape & softscape</li>
-              <li>Irrigation systems (smart & automated)</li>
-              <li>Garden maintenance & plant care</li>
-              <li>Swimming pool cleaning</li>
-              <li>Artificial grass & plant supply</li>
-              <li>Garden materials & tools</li>
-            </ul>
+        <hr class="dotted-sep" />
 
-            <h3>Why choose us?</h3>
+        <div class="services-why">
+          <div class="services-wrap">
+            <h3 class="sub-heading">Our Services</h3>
+
+            <!-- services grid - pop effect & reveal -->
+            <div class="services-grid" id="services-grid">
+              <div class="service">Landscape design & maintenance</div>
+              <div class="service">Hardscape & softscape</div>
+              <div class="service">Irrigation systems (smart & automated)</div>
+              <div class="service">Garden maintenance & plant care</div>
+              <div class="service">Swimming pool cleaning</div>
+              <div class="service">Artificial grass & plant supply</div>
+              <div class="service">Garden materials & tools</div>
+            </div>
+          </div>
+
+          <aside class="why-wrap" aria-labelledby="why-heading">
+            <h3 id="why-heading" class="sub-heading">Why choose us?</h3>
             <ul class="why-list">
               <li>Creative, practical solutions</li>
               <li>Premium plants & materials</li>
               <li>Skilled and experienced team</li>
               <li>Fair pricing & after-service support</li>
             </ul>
-          </div>
 
-          <aside class="right-col" aria-labelledby="contact-heading">
-            <h3 id="contact-heading">Contact</h3>
-            <p class="contact-line"><strong>Phone:</strong><br>
-              <a href="tel:+971527784800">+971 52 778 4800</a><br>
-              <a href="tel:+971527116212">+971 52 711 6212</a>
-            </p>
-            <p class="contact-line"><strong>Email:</strong><br>
-              <a href="mailto:info@manlandscape.ae">info@manlandscape.ae</a></p>
-            <p class="contact-line"><strong>Location:</strong><br>Dubai — UAE</p>
+            <div class="contact-card" aria-labelledby="contact-heading">
+              <h4 id="contact-heading" class="sub-heading">Contact</h4>
 
-            <div class="notify" aria-labelledby="notify-heading">
-              <h4 id="notify-heading">Get notified when we are back</h4>
-              <form id="notify-form" class="notify-form" novalidate>
-                <label for="email" class="sr-only">Email address</label>
-                <input id="email" name="email" type="email" placeholder="your@email.com"
-                       required aria-required="true" />
-                <button type="submit" id="notify-btn">Notify me</button>
+              <div class="contact-items">
+                <a class="contact-item" href="tel:+971527784800">
+                  <span class="ci-icon">📞</span>
+                  <span class="ci-text">+971 52 778 4800</span>
+                </a>
+
+                <a class="contact-item" href="tel:+971527116212">
+                  <span class="ci-icon">📞</span>
+                  <span class="ci-text">+971 52 711 6212</span>
+                </a>
+
+                <a class="contact-item" href="mailto:info@manlandscape.ae">
+                  <span class="ci-icon">✉️</span>
+                  <span class="ci-text">info@manlandscape.ae</span>
+                </a>
+
+                <div class="contact-item">
+                  <span class="ci-icon">📍</span>
+                  <span class="ci-text">Dubai — UAE</span>
+                </div>
+              </div>
+
+              <div class="notify" aria-labelledby="notify-heading">
+                <h5 id="notify-heading" class="small-heading">Get notified when we are back</h5>
+                <form id="notify-form" class="notify-form" novalidate>
+                  <label for="email" class="sr-only">Email address</label>
+                  <input id="email" name="email" type="email" placeholder="your@email.com"
+                         required aria-required="true" />
+                  <button type="submit" id="notify-btn">Notify me</button>
+                </form>
                 <p id="notify-msg" class="notify-msg" aria-live="polite"></p>
-              </form>
-              <small class="hint">No spam — we will only use your email to notify you.</small
+                <small class="hint">No spam - we will only use your email to notify you.</small>
+              </div>
+
+            </div>
+          </aside>
+        </div>
+
+        <footer class="card-footer">
+          <p>
+            Our digital garden is growing - operations continue as usual. For urgent enquiries,
+            please call or email us. Thank you for your patience.
+          </p>
+        </footer>
+      </section>
+    </article>
+  </main>
+  <div class="visually-hidden" aria-hidden="false" id="a11y-helper">Site under maintenance</div>
+</body>
+</html>
